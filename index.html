@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RMGC · Schedule & KPIs</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ── */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1f0d;--surface:rgba(255,255,255,0.04);--surface2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.09);--text:#e8f5e8;--text-muted:#7a9e7a;
+  --green:#3d8a3d;--green-light:#4fad4f;--green-dim:#2d6a2d;
+  --tick:#5fcf5f;--tick-bg:rgba(95,207,95,0.15);
+  --note-bg:rgba(255,220,80,0.08);--note-border:rgba(255,220,80,0.25);
+  --red:#e57373;--amber:#ffb74d;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;
+  background-image:radial-gradient(ellipse at 10% 0%,rgba(34,85,34,0.25) 0%,transparent 55%)}
+
+/* ── Top Bar ── */
+.topbar{background:rgba(13,31,13,0.95);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(16px);position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;padding:0 24px;height:58px;gap:16px}
+.topbar-brand{display:flex;align-items:center;gap:10px;flex:1}
+.brand-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--green-dim),var(--green));
+  border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px}
+.brand-name{font-family:'Playfair Display',serif;font-size:17px;color:var(--text)}
+.brand-sub{font-size:11px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase}
+.topbar-tabs{display:flex;gap:4px}
+.tab-btn{padding:7px 20px;border-radius:7px;border:1px solid transparent;background:transparent;
+  color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+  cursor:pointer;transition:all 0.2s;letter-spacing:0.3px}
+.tab-btn.active{background:var(--surface2);border-color:var(--border);color:var(--text)}
+.tab-btn:hover:not(.active){color:var(--text);background:var(--surface)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.user-badge{font-size:12px;color:var(--text-muted);padding:4px 10px;
+  background:var(--surface);border:1px solid var(--border);border-radius:20px}
+.user-badge span{color:var(--tick);font-weight:600}
+.logout-btn{font-size:12px;color:var(--text-muted);background:none;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;text-decoration:underline}
+.logout-btn:hover{color:var(--text)}
+
+/* ── Main Content ── */
+.main{padding:28px 24px;max-width:1200px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+
+/* ── Section Header ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.section-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--text)}
+.section-stats{font-size:13px;color:var(--text-muted)}
+.section-stats strong{color:var(--tick)}
+
+/* ── Schedule Table ── */
+.schedule-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+table.schedule{width:100%;border-collapse:collapse;font-size:12.5px}
+table.schedule th{background:rgba(13,31,13,0.9);color:var(--text-muted);font-weight:500;
+  padding:10px 8px;text-align:center;border-bottom:1px solid var(--border);
+  letter-spacing:0.5px;white-space:nowrap}
+table.schedule th.op-col{text-align:left;min-width:180px;padding-left:16px}
+table.schedule td{padding:0;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+table.schedule td.op-cell{padding:9px 10px 9px 16px;color:var(--text);font-weight:400}
+table.schedule td.op-cell .cat-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle;flex-shrink:0}
+table.schedule tr:hover td{background:rgba(255,255,255,0.02)}
+table.schedule tr.cat-header td{background:rgba(255,255,255,0.03);padding:6px 16px;
+  color:var(--text-muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
+
+/* ── Tick Cell ── */
+.tick-cell{text-align:center;position:relative}
+.tick-wrap{display:flex;flex-direction:column;align-items:center;min-width:38px;padding:4px 2px}
+.tick-btn{width:26px;height:26px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.12);
+  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;position:relative}
+.tick-btn:hover:not(:disabled){border-color:var(--tick);background:rgba(95,207,95,0.08)}
+.tick-btn.ticked{background:var(--tick-bg);border-color:var(--tick)}
+.tick-btn.ticked::after{content:'✓';color:var(--tick);font-size:14px;font-weight:700;line-height:1}
+.tick-btn:disabled{cursor:default;opacity:0.7}
+/* note indicator dot */
+.note-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);margin-top:3px;
+  opacity:0;transition:opacity 0.2s;flex-shrink:0}
+.note-dot.visible{opacity:1}
+
+/* ── Note Drawer ── */
+.note-drawer{display:none;background:var(--note-bg);border:1px solid var(--note-border);
+  border-radius:0 0 6px 6px;padding:6px;margin:0 2px}
+.note-drawer.open{display:block}
+.note-area{width:100%;min-height:52px;background:rgba(0,0,0,0.2);border:1px solid var(--note-border);
+  border-radius:4px;padding:5px 7px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:11.5px;
+  resize:vertical;outline:none;line-height:1.4}
+.note-area:focus{border-color:rgba(255,220,80,0.5)}
+.note-area:disabled{opacity:0.7;cursor:default;resize:none}
+.note-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:5px}
+.note-save-btn{padding:3px 10px;background:var(--green-dim);border:none;border-radius:4px;
+  color:var(--text);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.note-save-btn:hover{background:var(--green)}
+
+/* ── KPI Section ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.kpi-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.kpi-cat-pill{padding:3px 10px;border-radius:20px;font-size:10px;letter-spacing:1px;
+  text-transform:uppercase;font-weight:600}
+.kpi-title{font-size:13.5px;font-weight:500;color:var(--text);flex:1}
+.kpi-months{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px}
+.kpi-month-wrap{display:flex;flex-direction:column;align-items:center;gap:2px}
+.kpi-month-label{font-size:9.5px;color:var(--text-muted);letter-spacing:0.5px;text-transform:uppercase}
+
+/* ── Progress bar ── */
+.progress-bar-wrap{margin-bottom:24px}
+.progress-label{font-size:12px;color:var(--text-muted);margin-bottom:6px;display:flex;justify-content:space-between}
+.progress-track{height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dim),var(--tick));border-radius:3px;transition:width 0.4s ease}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:10px 16px;font-size:13px;color:var(--text);z-index:999;
+  transform:translateY(20px);opacity:0;transition:all 0.3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:var(--tick);color:var(--tick)}
+.toast.err{border-color:var(--red);color:var(--red)}
+
+/* ── Sync indicator ── */
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);display:inline-block;transition:background 0.3s}
+.sync-dot.synced{background:var(--tick)}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* ── Responsive ── */
+@media(max-width:640px){
+  .topbar{padding:0 12px;height:54px}
+  .topbar-tabs{gap:2px}
+  .tab-btn{padding:6px 12px;font-size:12px}
+  .brand-sub{display:none}
+  .main{padding:16px 10px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">⛳</div>
+    <div>
+      <div class="brand-name">RMGC Agronomy</div>
+      <div class="brand-sub">Royal Malta Golf Club</div>
+    </div>
+  </div>
+  <div class="topbar-tabs">
+    <button class="tab-btn active" onclick="showPage('schedule',this)">📋 Schedule</button>
+    <button class="tab-btn" onclick="showPage('kpis',this)">🎯 KPIs</button>
+  </div>
+  <div class="topbar-right">
+    <span class="sync-dot" id="syncDot" title="Sync status"></span>
+    <div class="user-badge"><span>{{ username }}</span> · {{ role }}</div>
+    <a href="/logout" class="logout-btn">logout</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ══ SCHEDULE PAGE ══ -->
+  <div class="page active" id="page-schedule">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Annual Maintenance Schedule</div>
+      </div>
+      <div class="section-stats">Done: <strong id="sch-done">0</strong> / <strong id="sch-total">0</strong></div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span>Annual Progress</span><span id="sch-pct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="sch-bar" style="width:0%"></div></div>
+    </div>
+    <div class="schedule-wrap">
+      <table class="schedule" id="sch-table">
+        <thead>
+          <tr>
+            <th class="op-col">Operation</th>
+            <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+            <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+          </tr>
+        </thead>
+        <tbody id="sch-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ KPIs PAGE ══ -->
+  <div class="page" id="page-kpis">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Key Performance Indicators</div>
+      </div>
+      <div class="section-stats">Done: <strong id="kpi-done">0</strong> / <strong id="kpi-total">0</strong></div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span>Annual Progress</span><span id="kpi-pct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="kpi-bar" style="width:0%"></div></div>
+    </div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ROLE = '{{ role }}';
+const CAN_EDIT = (ROLE === 'edit');
+
+// ── Data ──────────────────────────────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const SCHEDULE = [
+  // [category, color, [ops with their months as bitmask or array]]
+  // Each op: {name, months:[0-indexed month list]}
+  {cat:'Aeration & Renovation', color:'#5fcf5f', ops:[
+    {name:'Greens Hollow Tine Aeration',    months:[0,3,8]},
+    {name:'Greens Solid Tine Aeration',     months:[1,4,6,9]},
+    {name:'Greens Sarification / Verti-cut',months:[2,8]},
+    {name:'Tees Hollow Tine Aeration',      months:[3,8]},
+    {name:'Fairways Solid Tine Aeration',   months:[3,8]},
+    {name:'Fairways Hollow Tine Aeration',  months:[9]},
+    {name:'Rough Renovation',               months:[3,9]},
+  ]},
+  {cat:'Nutrition', color:'#ffb74d', ops:[
+    {name:'Greens Granular Fertiliser',     months:[2,5,8,10]},
+    {name:'Greens Liquid Feed Programme',   months:[3,4,5,6,7,8,9]},
+    {name:'Tees & Approaches Fertiliser',   months:[2,5,8]},
+    {name:'Fairways Fertiliser',            months:[2,5,8]},
+    {name:'Rough Fertiliser',               months:[4]},
+  ]},
+  {cat:'Wetting Agents & Soil', color:'#64b5f6', ops:[
+    {name:'Greens Wetting Agent Application',months:[2,4,6,8]},
+    {name:'Fairways Wetting Agent',          months:[4,6]},
+    {name:'Soil Moisture Monitoring',        months:[3,4,5,6,7,8,9,10]},
+  ]},
+  {cat:'Plant Protection', color:'#e57373', ops:[
+    {name:'Fungicide Programme (Greens)',    months:[0,3,8,10]},
+    {name:'Herbicide – Fairways & Roughs',  months:[3,8]},
+    {name:'Insecticide Treatment',           months:[4,7]},
+    {name:'Growth Regulator Application',   months:[3,4,5,6,7,8]},
+  ]},
+  {cat:'Presentation & Infrastructure', color:'#ce93d8', ops:[
+    {name:'Bunker Renovation',              months:[2,8]},
+    {name:'Irrigation System Check',        months:[2,9]},
+    {name:'Course Marking & Signage',       months:[2,8]},
+    {name:'Pathway Maintenance',            months:[3,9]},
+  ]},
+];
+
+const KPIS = [
+  {cat:'Turf Quality', color:'#5fcf5f', items:[
+    {name:'Greens Stimpmeter Reading ≥ 9ft',          months:[3,4,5,6,7,8,9,10]},
+    {name:'Greens Visual Quality Score ≥ 8/10',       months:[1,2,3,4,5,6,7,8,9,10,11]},
+    {name:'Fairway Turf Cover ≥ 85%',                 months:[3,4,5,6,7,8,9]},
+    {name:'Tee Surface Uniformity Score ≥ 7/10',      months:[2,3,4,5,6,7,8,9,10]},
+  ]},
+  {cat:'Water Management', color:'#64b5f6', items:[
+    {name:'Greens Moisture 20–30% (Peak Summer)',     months:[5,6,7,8]},
+    {name:'Irrigation Efficiency Review',              months:[2,8]},
+    {name:'Water Usage Log Submitted',                months:[0,1,2,3,4,5,6,7,8,9,10,11]},
+  ]},
+  {cat:'Playability', color:'#ffb74d', items:[
+    {name:'Rough Playability Maintained',             months:[3,4,5,6,7,8,9,10]},
+    {name:'Bunker Sand Depth Check (4")',             months:[2,5,8,11]},
+    {name:'Hole Location Changed (3x/wk)',            months:[0,1,2,3,4,5,6,7,8,9,10,11]},
+  ]},
+  {cat:'Compliance & Records', color:'#ce93d8', items:[
+    {name:'Spray Records Up to Date',                 months:[0,1,2,3,4,5,6,7,8,9,10,11]},
+    {name:'COSHH Assessments Current',               months:[2,5,8,11]},
+    {name:'Staff Training Records Updated',           months:[0,5]},
+    {name:'Pesticide Store Audit',                    months:[2,8]},
+  ]},
+  {cat:'Equipment', color:'#80cbc4', items:[
+    {name:'Greens Mower Blade Check / Reel Grind',   months:[0,2,4,6,8,10]},
+    {name:'Machinery Service Log Updated',            months:[0,3,6,9]},
+    {name:'Equipment Calibration Check',              months:[2,5,8]},
+  ]},
+];
+
+// ── State ─────────────────────────────────────────────────────────────────
+let ticks = {};   // key: "type:rowIdx:monthIdx"  value: true
+let notes = {};   // key: "type:rowIdx:monthIdx"  value: string
+
+// ── Sync ──────────────────────────────────────────────────────────────────
+const syncDot = document.getElementById('syncDot');
+function setSyncState(s){syncDot.className='sync-dot '+(s==='synced'?'synced':s==='syncing'?'syncing':'')}
+
+async function loadFromServer(){
+  setSyncState('syncing');
+  try{
+    const [tr,nr]=await Promise.all([
+      fetch('/api/ticks').then(r=>r.json()),
+      fetch('/api/notes').then(r=>r.json()),
+    ]);
+    ticks=tr||{};
+    notes=nr||{};
+    setSyncState('synced');
+  }catch(e){
+    setSyncState('');
+    showToast('Could not load data from server','err');
+  }
+}
+
+async function saveTicks(){
+  if(!CAN_EDIT) return;
+  setSyncState('syncing');
+  try{
+    await fetch('/api/ticks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ticks)});
+    setSyncState('synced');
+  }catch(e){setSyncState('');showToast('Save failed','err')}
+}
+
+async function saveNotes(){
+  if(!CAN_EDIT) return;
+  setSyncState('syncing');
+  try{
+    await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(notes)});
+    setSyncState('synced');
+  }catch(e){setSyncState('');showToast('Note save failed','err')}
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+(type||'');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className='toast',2500);
+}
+
+// ── Page switcher ─────────────────────────────────────────────────────────
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Build tick cell ───────────────────────────────────────────────────────
+function buildTickCell(type, rowIdx, mIdx){
+  const key=`${type}:${rowIdx}:${mIdx}`;
+  const isTicked=!!ticks[key];
+  const hasNote=!!(notes[key]&&notes[key].trim());
+
+  const td=document.createElement('td');
+  td.className='tick-cell';
+  td.dataset.key=key;
+
+  const wrap=document.createElement('div');
+  wrap.className='tick-wrap';
+
+  // tick button
+  const btn=document.createElement('button');
+  btn.className='tick-btn'+(isTicked?' ticked':'');
+  btn.title=isTicked?'Mark undone':'Mark done';
+  btn.disabled=!CAN_EDIT;
+  btn.addEventListener('click',()=>toggleTick(key,btn));
+
+  // note dot
+  const dot=document.createElement('div');
+  dot.className='note-dot'+(hasNote?' visible':'');
+  dot.dataset.noteDot=key;
+
+  // note drawer toggle (click on dot or long-press on cell)
+  dot.addEventListener('click',e=>{e.stopPropagation();toggleNoteDrawer(key,td)});
+  btn.addEventListener('contextmenu',e=>{e.preventDefault();toggleNoteDrawer(key,td)});
+
+  wrap.appendChild(btn);
+  wrap.appendChild(dot);
+
+  // note drawer (hidden below the cell via next sibling tr trick — easier: div inside td stacked)
+  const drawer=document.createElement('div');
+  drawer.className='note-drawer';
+  drawer.dataset.noteDrawer=key;
+
+  const textarea=document.createElement('textarea');
+  textarea.className='note-area';
+  textarea.placeholder='Add a note…';
+  textarea.value=notes[key]||'';
+  textarea.disabled=!CAN_EDIT;
+
+  drawer.appendChild(textarea);
+
+  if(CAN_EDIT){
+    const actions=document.createElement('div');
+    actions.className='note-actions';
+    const saveBtn=document.createElement('button');
+    saveBtn.className='note-save-btn';
+    saveBtn.textContent='Save note';
+    saveBtn.addEventListener('click',()=>{
+      const val=textarea.value.trim();
+      if(val) notes[key]=val; else delete notes[key];
+      dot.className='note-dot'+(val?' visible':'');
+      saveNotes();
+      showToast('Note saved','ok');
+    });
+    actions.appendChild(saveBtn);
+    drawer.appendChild(actions);
+  }
+
+  td.appendChild(wrap);
+  td.appendChild(drawer);
+  return td;
+}
+
+function toggleTick(key,btn){
+  if(ticks[key]) delete ticks[key]; else ticks[key]=true;
+  btn.className='tick-btn'+(ticks[key]?' ticked':'');
+  btn.title=ticks[key]?'Mark undone':'Mark done';
+  saveTicks();
+  updateStats();
+}
+
+function toggleNoteDrawer(key,td){
+  const drawer=td.querySelector('[data-note-drawer]');
+  if(!drawer) return;
+  drawer.classList.toggle('open');
+}
+
+// ── Build Schedule ────────────────────────────────────────────────────────
+function buildSchedule(){
+  const tbody=document.getElementById('sch-body');
+  tbody.innerHTML='';
+  let globalRow=0;
+
+  SCHEDULE.forEach(cat=>{
+    // category header row
+    const htr=document.createElement('tr');
+    htr.className='cat-header';
+    const htd=document.createElement('td');
+    htd.colSpan=13;
+    htd.innerHTML=`<span style="color:${cat.color}">${cat.cat}</span>`;
+    htr.appendChild(htd);
+    tbody.appendChild(htr);
+
+    cat.ops.forEach(op=>{
+      const tr=document.createElement('tr');
+      const nameTd=document.createElement('td');
+      nameTd.className='op-cell';
+      nameTd.innerHTML=`<span class="cat-dot" style="background:${cat.color}"></span>${op.name}`;
+      tr.appendChild(nameTd);
+
+      MONTHS.forEach((_,mi)=>{
+        if(op.months.includes(mi)){
+          tr.appendChild(buildTickCell('sch',globalRow,mi));
+        } else {
+          const empty=document.createElement('td');
+          empty.className='tick-cell';
+          empty.style.background='rgba(255,255,255,0.01)';
+          tr.appendChild(empty);
+        }
+      });
+      tbody.appendChild(tr);
+      globalRow++;
+    });
+  });
+}
+
+// ── Build KPIs ────────────────────────────────────────────────────────────
+function buildKPIs(){
+  const grid=document.getElementById('kpi-grid');
+  grid.innerHTML='';
+  let globalRow=0;
+
+  KPIS.forEach(cat=>{
+    cat.items.forEach(item=>{
+      const card=document.createElement('div');
+      card.className='kpi-card';
+
+      const header=document.createElement('div');
+      header.className='kpi-header';
+      const pill=document.createElement('div');
+      pill.className='kpi-cat-pill';
+      pill.style.background=cat.color+'22';
+      pill.style.color=cat.color;
+      pill.textContent=cat.cat;
+      const title=document.createElement('div');
+      title.className='kpi-title';
+      title.textContent=item.name;
+      header.appendChild(pill);
+      header.appendChild(title);
+      card.appendChild(header);
+
+      const monthWrap=document.createElement('div');
+      monthWrap.className='kpi-months';
+
+      item.months.forEach(mi=>{
+        const mw=document.createElement('div');
+        mw.className='kpi-month-wrap';
+        const label=document.createElement('div');
+        label.className='kpi-month-label';
+        label.textContent=MONTHS[mi];
+        mw.appendChild(label);
+        mw.appendChild(buildTickCell('kpi',globalRow,mi));
+        monthWrap.appendChild(mw);
+      });
+
+      card.appendChild(monthWrap);
+      grid.appendChild(card);
+      globalRow++;
+    });
+  });
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function updateStats(){
+  // schedule
+  let schT=0,schD=0;
+  let gRow=0;
+  SCHEDULE.forEach(cat=>{
+    cat.ops.forEach(op=>{
+      op.months.forEach(mi=>{
+        schT++;
+        if(ticks[`sch:${gRow}:${mi}`]) schD++;
+      });
+      gRow++;
+    });
+  });
+  document.getElementById('sch-done').textContent=schD;
+  document.getElementById('sch-total').textContent=schT;
+  const sp=schT?Math.round(schD/schT*100):0;
+  document.getElementById('sch-pct').textContent=sp+'%';
+  document.getElementById('sch-bar').style.width=sp+'%';
+
+  // kpis
+  let kpiT=0,kpiD=0;
+  gRow=0;
+  KPIS.forEach(cat=>{
+    cat.items.forEach(item=>{
+      item.months.forEach(mi=>{
+        kpiT++;
+        if(ticks[`kpi:${gRow}:${mi}`]) kpiD++;
+      });
+      gRow++;
+    });
+  });
+  document.getElementById('kpi-done').textContent=kpiD;
+  document.getElementById('kpi-total').textContent=kpiT;
+  const kp=kpiT?Math.round(kpiD/kpiT*100):0;
+  document.getElementById('kpi-pct').textContent=kp+'%';
+  document.getElementById('kpi-bar').style.width=kp+'%';
+}
+
+// ── Re-apply ticks/notes to DOM ───────────────────────────────────────────
+function applyTicksAndNotes(){
+  // ticks
+  document.querySelectorAll('.tick-btn').forEach(btn=>{
+    const td=btn.closest('td[data-key]');
+    if(!td) return;
+    const key=td.dataset.key;
+    const ticked=!!ticks[key];
+    btn.className='tick-btn'+(ticked?' ticked':'');
+  });
+  // note dots
+  document.querySelectorAll('[data-note-dot]').forEach(dot=>{
+    const key=dot.dataset.noteDot;
+    const has=!!(notes[key]&&notes[key].trim());
+    dot.className='note-dot'+(has?' visible':'');
+  });
+  // note textareas
+  document.querySelectorAll('[data-note-drawer]').forEach(drawer=>{
+    const key=drawer.dataset.noteDrawer;
+    const ta=drawer.querySelector('textarea');
+    if(ta) ta.value=notes[key]||'';
+  });
+  updateStats();
+}
+
+// ── Poll for updates (every 30s) ──────────────────────────────────────────
+async function pollUpdates(){
+  try{
+    const [tr,nr]=await Promise.all([
+      fetch('/api/ticks').then(r=>r.json()),
+      fetch('/api/notes').then(r=>r.json()),
+    ]);
+    ticks=tr||{};
+    notes=nr||{};
+    applyTicksAndNotes();
+    setSyncState('synced');
+  }catch(e){}
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(async()=>{
+  buildSchedule();
+  buildKPIs();
+  await loadFromServer();
+  applyTicksAndNotes();
+  setInterval(pollUpdates,30000);
+})();
+</script>
+</body>
+</html>
