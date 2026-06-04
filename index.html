@@ -149,6 +149,7 @@ table.schedule tr.cat-header td{background:rgba(255,255,255,0.03);padding:6px 16
   <div class="topbar-tabs">
     <button class="tab-btn active" onclick="showPage('schedule',this)">📋 Schedule</button>
     <button class="tab-btn" onclick="showPage('kpis',this)">🎯 KPIs</button>
+    <button class="tab-btn" onclick="showPage('extras',this)">🔧 Extra Works</button>
   </div>
   <div class="topbar-right">
     <span class="sync-dot" id="syncDot" title="Sync status"></span>
@@ -200,9 +201,69 @@ table.schedule tr.cat-header td{background:rgba(255,255,255,0.03);padding:6px 16
     <div class="kpi-grid" id="kpi-grid"></div>
   </div>
 
+  <!-- ══ EXTRA WORKS PAGE ══ -->
+  <div class="page" id="page-extras">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Extra Works — ETS Preparation</div>
+      </div>
+      <div class="section-stats">Done: <strong id="ext-done">0</strong> / <strong id="ext-total">0</strong></div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span>Overall Completion</span><span id="ext-pct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="ext-bar" style="width:0%"></div></div>
+    </div>
+    <div id="extras-list"></div>
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
+
+<style>
+/* ── Extra Works ── */
+.ew-section{margin-bottom:22px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.ew-section-header{background:rgba(255,255,255,0.05);padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.ew-section-title{font-family:'Playfair Display',serif;font-size:14px;color:var(--text);flex:1}
+.ew-section-count{font-size:11px;color:var(--text-muted)}
+.ew-section-count strong{color:var(--tick)}
+.ew-item{display:grid;grid-template-columns:36px 1fr auto auto;align-items:start;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s}
+.ew-item:last-child{border-bottom:none}
+.ew-item:hover{background:rgba(255,255,255,0.02)}
+.ew-item.done-item .ew-name{text-decoration:line-through;color:var(--text-muted)}
+.ew-check{width:26px;height:26px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.12);background:transparent;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;margin-top:1px}
+.ew-check:hover:not(:disabled){border-color:var(--tick);background:rgba(95,207,95,0.08)}
+.ew-check.ticked{background:var(--tick-bg);border-color:var(--tick)}
+.ew-check.ticked::after{content:'✓';color:var(--tick);font-size:14px;font-weight:700}
+.ew-check:disabled{cursor:default;opacity:0.7}
+.ew-body{display:flex;flex-direction:column;gap:3px}
+.ew-name{font-size:13px;color:var(--text);line-height:1.4}
+.ew-location{font-size:11.5px;color:var(--text-muted)}
+.ew-comment{font-size:11px;color:#ffb74d;margin-top:2px;font-style:italic}
+.ew-hours{font-size:11px;color:var(--text-muted);white-space:nowrap;text-align:right;padding-top:2px}
+.ew-hours span{color:var(--text);font-weight:500}
+.ew-note-area{font-size:11.5px;color:var(--text-muted);text-align:right;padding-top:2px;cursor:pointer;white-space:nowrap}
+.ew-note-area:hover{color:var(--tick)}
+/* note drawer for ew items */
+.ew-drawer{display:none;padding:6px 16px 10px;background:var(--note-bg);border-top:1px solid var(--note-border)}
+.ew-drawer.open{display:block}
+.ew-note-ta{width:100%;min-height:48px;background:rgba(0,0,0,0.2);border:1px solid var(--note-border);
+  border-radius:4px;padding:5px 7px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:11.5px;
+  resize:vertical;outline:none;line-height:1.4}
+.ew-note-ta:focus{border-color:rgba(255,220,80,0.5)}
+.ew-note-ta:disabled{opacity:0.7;cursor:default;resize:none}
+.ew-note-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:5px}
+.ew-note-save{padding:3px 10px;background:var(--green-dim);border:none;border-radius:4px;
+  color:var(--text);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.ew-note-save:hover{background:var(--green)}
+.ew-tag-done{font-size:10px;padding:2px 8px;background:rgba(95,207,95,0.1);border:1px solid rgba(95,207,95,0.3);
+  border-radius:20px;color:var(--tick);white-space:nowrap;margin-top:2px;align-self:flex-start}
+@media(max-width:640px){
+  .ew-item{grid-template-columns:30px 1fr;gap:8px}
+  .ew-hours,.ew-note-area{display:none}
+}
+</style>
 
 <script>
 const ROLE = '{{ role }}';
@@ -582,12 +643,208 @@ async function pollUpdates(){
   }catch(e){}
 }
 
+// ── Extra Works Data ─────────────────────────────────────────────────────
+const EXTRA_WORKS = [
+  {
+    section: 'Extra Works',
+    color: '#5fcf5f',
+    items: [
+      { id:'ew-1',  name:'Hedge work – removal of dead bushes and planting replacements', location:'1st tee, club entrance, right of 2nd tee, by water station', hours:null, comment:'Completed', done:true },
+      { id:'ew-2',  name:'Returf – Through the green (priority areas that could be in play)', location:'1st tee, all bare areas around course on fairways / aprons (incl. hole 4)', hours:80, comment:'Approx 10 locations – 1B, 2m, 7S' },
+      { id:'ew-3',  name:'Pathways – refill and flatten', location:'Behind range, central pathway (4th–8th tee), run-offs (16 & 17)', hours:20, comment:'' },
+      { id:'ew-4',  name:'Pathways – edge and turf edges', location:'Holes 8, 14, 16, 17', hours:60, comment:'' },
+      { id:'ew-5',  name:'Ditch clearance (for drainage) / tidying – 8th hole only', location:'8th hole (9th to be outsourced?)', hours:20, comment:'New digger required' },
+      { id:'ew-6',  name:'Trees – Pruning', location:'All areas', hours:48, comment:'' },
+      { id:'ew-7',  name:'Trees – Spraying', location:'All areas', hours:0, comment:'To be done in regular hours' },
+    ]
+  },
+  {
+    section: 'Current Works – Require Attention / Behind',
+    color: '#ffb74d',
+    items: [
+      { id:'ew-8',  name:'Bunkers – Raking consistency and sand depth/consistency (medium to soft, none hard)', location:'All bunkers', hours:0, comment:'To be done in regular hours' },
+      { id:'ew-9',  name:'Bunkers – Edging', location:'All bunkers', hours:0, comment:'To be done in regular hours' },
+      { id:'ew-10', name:'Removal of weeds from collars & fringes', location:'All collars & fringes', hours:216, comment:'' },
+      { id:'ew-11', name:'Removal of weeds from non-playing areas', location:'1st tee, practice net, all bunker edges, wall edges, boundaries, pathways, plantation areas', hours:0, comment:'To be done in regular hours' },
+      { id:'ew-12', name:'Install Zoysia grass collars', location:'All greens', hours:null, comment:'Cannot be done fully before ETS' },
+      { id:'ew-13', name:'Returf – Greens (weak areas of green/fringe)', location:'All weak areas – allow time to establish', hours:36, comment:'' },
+    ]
+  },
+  {
+    section: 'Others',
+    color: '#64b5f6',
+    items: [
+      { id:'ew-14', name:'Initiate cart control / diversion to relieve high wear areas', location:'Holes 1?, 2, 3, 6 (thru MB), left of 13, 14 green', hours:0, comment:'Buy only – diversion blocks required' },
+      { id:'ew-15', name:'Fixtures & fittings – clean, replace, add (benches, bins & ball washers)', location:'All holes', hours:0, comment:'Buy only' },
+      { id:'ew-16', name:'New yardage markers – High visibility', location:'All holes', hours:25, comment:'' },
+      { id:'ew-17', name:'New tee markers – High quality', location:'All holes', hours:0, comment:'Buy only' },
+      { id:'ew-18', name:'Order international event standard pins and pin flags', location:'All holes', hours:0, comment:'Buy only' },
+    ]
+  },
+  {
+    section: 'Staffing',
+    color: '#ce93d8',
+    items: [
+      { id:'ew-19', name:'Short term – Consider Sergio (Colombian), temporary labour, Fabian Silva & staff overtime', location:'All areas', hours:null, comment:'LB to lead' },
+      { id:'ew-20', name:'Medium term – Review interview and onboarding process', location:'Management', hours:null, comment:'MD to lead' },
+      { id:'ew-21', name:'Long term – Invest in shed/working conditions, salary / bonus structure', location:'Management', hours:null, comment:'MD & PS to lead' },
+    ]
+  },
+];
+
+// ── Build Extra Works ────────────────────────────────────────────────────
+function buildExtras(){
+  const container = document.getElementById('extras-list');
+  container.innerHTML = '';
+
+  EXTRA_WORKS.forEach(section => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ew-section';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'ew-section-header';
+    hdr.innerHTML = `
+      <div style="width:9px;height:9px;border-radius:50%;background:${section.color};flex-shrink:0"></div>
+      <div class="ew-section-title">${section.section}</div>
+      <div class="ew-section-count" id="sec-count-${section.section.replace(/\W+/g,'_')}"></div>`;
+    wrap.appendChild(hdr);
+
+    section.items.forEach(item => {
+      const key = `ext:${item.id}`;
+      const isTicked = !!ticks[key];
+
+      // Row
+      const row = document.createElement('div');
+      row.className = 'ew-item' + (isTicked ? ' done-item' : '');
+      row.id = `ew-row-${item.id}`;
+
+      // Checkbox
+      const chk = document.createElement('button');
+      chk.className = 'ew-check' + (isTicked ? ' ticked' : '');
+      chk.disabled = !CAN_EDIT;
+      chk.title = isTicked ? 'Mark undone' : 'Mark done';
+      chk.addEventListener('click', () => toggleExtTick(key, chk, row));
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'ew-body';
+      body.innerHTML = `<div class="ew-name">${item.name}</div>
+        <div class="ew-location">📍 ${item.location}</div>
+        ${item.comment ? `<div class="ew-comment">⚠ ${item.comment}</div>` : ''}`;
+
+      // Hours
+      const hrs = document.createElement('div');
+      hrs.className = 'ew-hours';
+      if (item.hours !== null && item.hours !== 0) {
+        hrs.innerHTML = `<span>${item.hours}h</span>`;
+      } else if (item.hours === 0) {
+        hrs.innerHTML = `<span style="color:var(--text-muted)">–</span>`;
+      } else {
+        hrs.innerHTML = '';
+      }
+
+      // Note toggle
+      const noteToggle = document.createElement('div');
+      noteToggle.className = 'ew-note-area';
+      const hasNote = !!(ewNotes[key] && ewNotes[key].trim());
+      noteToggle.innerHTML = hasNote ? '📝' : '＋note';
+      noteToggle.dataset.noteKey = key;
+      noteToggle.title = 'Add / view note';
+      noteToggle.addEventListener('click', () => toggleEwDrawer(item.id));
+
+      row.appendChild(chk);
+      row.appendChild(body);
+      row.appendChild(hrs);
+      row.appendChild(noteToggle);
+      wrap.appendChild(row);
+
+      // Note drawer
+      const drawer = document.createElement('div');
+      drawer.className = 'ew-drawer';
+      drawer.id = `ew-drawer-${item.id}`;
+      const ta = document.createElement('textarea');
+      ta.className = 'ew-note-ta';
+      ta.placeholder = 'Add a note…';
+      ta.value = ewNotes[key] || '';
+      ta.disabled = !CAN_EDIT;
+      drawer.appendChild(ta);
+      if(CAN_EDIT){
+        const acts = document.createElement('div');
+        acts.className = 'ew-note-actions';
+        const sv = document.createElement('button');
+        sv.className = 'ew-note-save';
+        sv.textContent = 'Save note';
+        sv.addEventListener('click', () => {
+          const val = ta.value.trim();
+          if(val) ewNotes[key]=val; else delete ewNotes[key];
+          noteToggle.innerHTML = val ? '📝' : '＋note';
+          saveEwNotes();
+          showToast('Note saved','ok');
+        });
+        acts.appendChild(sv);
+        drawer.appendChild(acts);
+      }
+      wrap.appendChild(drawer);
+    });
+
+    container.appendChild(wrap);
+  });
+
+  updateExtStats();
+}
+
+function toggleExtTick(key, chk, row){
+  if(ticks[key]) delete ticks[key]; else ticks[key]=true;
+  const ticked = !!ticks[key];
+  chk.className = 'ew-check' + (ticked ? ' ticked' : '');
+  chk.title = ticked ? 'Mark undone' : 'Mark done';
+  row.className = 'ew-item' + (ticked ? ' done-item' : '');
+  saveTicks();
+  updateExtStats();
+}
+
+function toggleEwDrawer(id){
+  const d = document.getElementById(`ew-drawer-${id}`);
+  if(d) d.classList.toggle('open');
+}
+
+// separate notes store for extra works (or reuse main notes with 'ext:' prefix)
+let ewNotes = {};
+
+async function saveEwNotes(){
+  if(!CAN_EDIT) return;
+  // merge ewNotes into main notes object and save
+  Object.assign(notes, ewNotes);
+  setSyncState('syncing');
+  try{
+    await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(notes)});
+    setSyncState('synced');
+  }catch(e){setSyncState('');showToast('Note save failed','err')}
+}
+
+function updateExtStats(){
+  let total=0, done=0;
+  EXTRA_WORKS.forEach(s => s.items.forEach(item => {
+    total++;
+    if(ticks[`ext:${item.id}`]) done++;
+  }));
+  document.getElementById('ext-done').textContent = done;
+  document.getElementById('ext-total').textContent = total;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('ext-pct').textContent = pct+'%';
+  document.getElementById('ext-bar').style.width = pct+'%';
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 (async()=>{
   buildSchedule();
   buildKPIs();
   await loadFromServer();
+  // sync ewNotes from loaded notes (keys starting with 'ext:')
+  Object.keys(notes).filter(k=>k.startsWith('ext:')).forEach(k=>ewNotes[k]=notes[k]);
+  buildExtras();
   applyTicksAndNotes();
+  updateExtStats();
   setInterval(pollUpdates,30000);
 })();
 </script>
